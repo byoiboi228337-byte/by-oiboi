@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Battle</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-dark: #0d1117;
+            --bg-panel: #161b22;
+            --border: #30363d;
+            --accent: #58a6ff;
+            --accent-hover: #79c0ff;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --danger: #f85149;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+        }
+        
+        #sidebar {
+            width: 280px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            gap: 15px;
+            overflow-y: auto;
+        }
+        
+        #main {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+        
+        canvas { display: block; }
+        
+        h1 {
+            font-size: 20px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .panel h3 {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        #palette {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+        }
+        
+        .color-swatch {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        
+        .color-swatch:hover {
+            transform: scale(1.15);
+            z-index: 1;
+        }
+        
+        .color-swatch.active {
+            border-color: #fff;
+            box-shadow: 0 0 8px rgba(255,255,255,0.5);
+        }
+        
+        input[type="color"] {
+            width: 100%;
+            height: 36px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: transparent;
+        }
+        
+        #custom-colors {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        
+        .custom-color {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            cursor: pointer;
+        }
+        
+        .custom-color:hover {
+            border-color: var(--accent);
+        }
+        
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-panel);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: var(--border);
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+        
+        #coords, #cooldown, #pixel-info {
+            position: absolute;
+            background: rgba(22, 27, 34, 0.9);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: monospace;
+            backdrop-filter: blur(10px);
+        }
+        
+        #coords {
+            bottom: 20px;
+            left: 20px;
+        }
+        
+        #cooldown {
+            top: 20px;
+            right: 20px;
+            display: none;
+            color: var(--danger);
+        }
+        
+        #pixel-info {
+            top: 20px;
+            left: 20px;
+            display: none;
+        }
+        
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .zoom-controls button {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-panel);
+            color: var(--text);
+            font-size: 18px;
+            cursor: pointer;
+        }
+        
+        .zoom-controls button:hover {
+            background: var(--border);
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        
+        .online {
+            color: #3fb950;
+            font-weight: 600;
+        }
+        
+        .clear-btn {
+            background: var(--danger);
+            border: none;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .clear-btn:hover {
+            background: #da3633;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Загрузка...</div>
+    
+    <div id="sidebar">
+        <h1>🎨 Pixel Battle</h1>
+        
+        <div class="stats">
+            <span>Онлайн: <span class="online" id="online">-</span></span>
+            <span>Пикселей: <span id="pixel-count">0</span></span>
+        </div>
+        
+        <div class="panel">
+            <h3>Палитра</h3>
+            <div id="palette"></div>
+        </div>
+        
+        <div class="panel">
+            <h3>Свой цвет</h3>
+            <input type="color" id="color-picker" value="#58a6ff">
+            <div id="custom-colors"></div>
+        </div>
+        
+        <div class="panel">
+            <h3>Масштаб</h3>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn" id="zoom-in" style="flex:1">➕ Приблизить</button>
+                <button class="btn" id="zoom-out" style="flex:1">➖ Отдалить</button>
+            </div>
+            <button class="btn" id="reset-zoom" style="width:100%; margin-top:8px">🔄 Сбросить</button>
+        </div>
+        
+        <div class="panel">
+            <h3>Информация</h3>
+            <p class="help-text">
+                🖱️ ЛКМ - рисовать<br>
+                🖱️ ПКМ/Средняя - двигать<br>
+                🔄 Колесо - зум<br>
+                ⏱️ Кулдаун: 3 сек
+            </p>
+        </div>
+        
+        <div class="panel">
+            <h3>Размер холста</h3>
+            <p id="canvas-size" style="color: var(--text-muted)">1000 x 1000</p>
+        </div>
+        
+        <button class="clear-btn" id="clear-btn">🗑️ Очистить холст</button>
+    </div>
+    
+    <div id="main">
+        <div id="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+        <div id="coords">X: 0, Y: 0</div>
+        <div id="cooldown">⏱️ Кулдаун: <span id="cd-timer">0</span>с</div>
+        <div id="pixel-info">Цвет: <span id="pixel-color">-</span></div>
+        <div class="zoom-controls">
+            <button id="zoom-in-btn">+</button>
+            <button id="zoom-out-btn">-</button>
+        </div>
+    </div>
+
+    <script>
+        const CANVAS_WIDTH = 1000;
+        const CANVAS_HEIGHT = 1000;
+        const PIXEL_SIZE = 20;
+        const COOLDOWN_TIME = 3000;
+        
+        const COLORS = [
+            '#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff',
+            '#ff6600', '#9900ff', '#00ff99', '#ff0066', '#333333', '#666666', '#999999', '#cccccc',
+            '#58a6ff', '#1f6feb', '#238636', '#3fb950', '#a371f7', '#f85149', '#ff7b72', '#d29922',
+            '#8b949e', '#484f58', '#30363d', '#161b22', '#0d1117', '#c9d1d9', '#f0f6fc', '#79c0ff'
+        ];
+        
+        let canvas, ctx;
+        let pixels = {};
+        let scale = 1;
+        let offsetX = 0, offsetY = 0;
+        let isDragging = false;
+        let lastX = 0, lastY = 0;
+        let currentColor = '#58a6ff';
+        let lastDrawTime = 0;
+        let cooldownRemaining = 0;
+        let customColors = [];
+        let cooldownInterval;
+        
+        function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            canvas.width = CANVAS_WIDTH * PIXEL_SIZE;
+            canvas.height = CANVAS_HEIGHT * PIXEL_SIZE;
+            
+            createPalette();
+            loadFromLocalStorage();
+            render();
+            setupEvents();
+            startCooldownTimer();
+            updateOnlineCount();
+            centerCanvas();
+            updatePixelCount();
+            
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        function createPalette() {
+            const palette = document.getElementById('palette');
+            palette.innerHTML = '';
+            COLORS.forEach((color, i) => {
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch' + (i === 16 ? ' active' : '');
+                swatch.style.backgroundColor = color;
+                swatch.onclick = () => selectColor(color, swatch);
+                palette.appendChild(swatch);
+            });
+        }
+        
+        function selectColor(color, element) {
+            currentColor = color;
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+            if (element) element.classList.add('active');
+            document.getElementById('color-picker').value = color;
+        }
+        
+        document.getElementById('color-picker').addEventListener('input', (e) => {
+            currentColor = e.target.value;
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+            addCustomColor(currentColor);
+        });
+        
+        function addCustomColor(color) {
+            if (!customColors.includes(color)) {
+                customColors = [color, ...customColors].slice(0, 8);
+                localStorage.setItem('pixelbattle_colors', JSON.stringify(customColors));
+                renderCustomColors();
+            }
+        }
+        
+        function renderCustomColors() {
+            const container = document.getElementById('custom-colors');
+            container.innerHTML = '';
+            customColors.forEach(color => {
+                const div = document.createElement('div');
+                div.className = 'custom-color';
+                div.style.backgroundColor = color;
+                div.onclick = () => selectColor(color);
+                container.appendChild(div);
+            });
+        }
+        
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('pixelbattle_pixels');
+                if (saved) pixels = JSON.parse(saved);
+                
+                const colors = localStorage.getItem('pixelbattle_colors');
+                if (colors) {
+                    customColors = JSON.parse(colors);
+                    renderCustomColors();
+                }
+            } catch(e) {}
+        }
+        
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('pixelbattle_pixels', JSON.stringify(pixels));
+            } catch(e) {}
+        }
+        
+        function render() {
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            for (let y = 0; y < CANVAS_HEIGHT; y++) {
+                for (let x = 0; x < CANVAS_WIDTH; x++) {
+                    const key = `${x},${y}`;
+                    if (pixels[key]) {
+                        ctx.fillStyle = pixels[key];
+                        ctx.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE - 1, PIXEL_SIZE - 1);
+                    } else {
+                        ctx.fillStyle = (x + y) % 2 === 0 ? '#161b22' : '#1c2128';
+                        ctx.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+                    }
+                }
+            }
+            
+            ctx.restore();
+        }
+        
+        function setupEvents() {
+            const container = document.getElementById('canvas-container');
+            
+            container.addEventListener('mousedown', (e) => {
+                if (e.button === 2 || e.button === 1) {
+                    isDragging = true;
+                    lastX = e.clientX;
+                    lastY = e.clientY;
+                    container.style.cursor = 'grabbing';
+                } else if (e.button === 0) {
+                    placePixel(e);
+                }
+            });
+            
+            container.addEventListener('mousemove', (e) => {
+                updateCoords(e);
+                if (isDragging) {
+                    offsetX += e.clientX - lastX;
+                    offsetY += e.clientY - lastY;
+                    lastX = e.clientX;
+                    lastY = e.clientY;
+                    render();
+                }
+            });
+            
+            container.addEventListener('mouseup', () => {
+                isDragging = false;
+                container.style.cursor = 'crosshair';
+            });
+            
+            container.addEventListener('mouseleave', () => {
+                isDragging = false;
+                container.style.cursor = 'crosshair';
+            });
+            
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                scale = Math.max(0.1, Math.min(5, scale * delta));
+                render();
+            });
+            
+            container.addEventListener('contextmenu', (e) => e.preventDefault());
+            
+            document.getElementById('zoom-in').onclick = () => { scale = Math.min(5, scale * 1.5); render(); };
+            document.getElementById('zoom-out').onclick = () => { scale = Math.max(0.1, scale / 1.5); render(); };
+            document.getElementById('reset-zoom').onclick = () => { scale = 1; centerCanvas(); };
+            document.getElementById('zoom-in-btn').onclick = () => { scale = Math.min(5, scale * 1.2); render(); };
+            document.getElementById('zoom-out-btn').onclick = () => { scale = Math.max(0.1, scale / 1.2); render(); };
+            
+            document.getElementById('clear-btn').onclick = () => {
+                if (confirm('Очистить весь холст?')) {
+                    pixels = {};
+                    saveToLocalStorage();
+                    render();
+                    updatePixelCount();
+                }
+            };
+        }
+        
+        function placePixel(e) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            
+            const x = Math.floor((e.clientX - rect.left - offsetX) / scale / PIXEL_SIZE);
+            const y = Math.floor((e.clientY - rect.top - offsetY) / scale / PIXEL_SIZE);
+            
+            if (x < 0 || x >= CANVAS_WIDTH || y < 0 || y >= CANVAS_HEIGHT) return;
+            
+            const now = Date.now();
+            if (now - lastDrawTime < COOLDOWN_TIME) {
+                showCooldown();
+                return;
+            }
+            
+            const key = `${x},${y}`;
+            pixels[key] = currentColor;
+            lastDrawTime = now;
+            saveToLocalStorage();
+            render();
+            startCooldownTimer();
+            updatePixelCount();
+        }
+        
+        function showCooldown() {
+            const cd = document.getElementById('cooldown');
+            cd.style.display = 'block';
+            updateCooldownDisplay();
+        }
+        
+        function startCooldownTimer() {
+            if (cooldownInterval) clearInterval(cooldownInterval);
+            cooldownRemaining = COOLDOWN_TIME;
+            updateCooldownDisplay();
+            
+            const cd = document.getElementById('cooldown');
+            cd.style.display = 'block';
+            
+            cooldownInterval = setInterval(() => {
+                cooldownRemaining -= 100;
+                if (cooldownRemaining <= 0) {
+                    clearInterval(cooldownInterval);
+                    cd.style.display = 'none';
+                } else {
+                    updateCooldownDisplay();
+                }
+            }, 100);
+        }
+        
+        function updateCooldownDisplay() {
+            const cdTime = Math.ceil(cooldownRemaining / 1000);
+            document.getElementById('cd-timer').textContent = cdTime;
+        }
+        
+        function updateCoords(e) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            
+            const x = Math.floor((e.clientX - rect.left - offsetX) / scale / PIXEL_SIZE);
+            const y = Math.floor((e.clientY - rect.top - offsetY) / scale / PIXEL_SIZE);
+            
+            document.getElementById('coords').textContent = `X: ${x}, Y: ${y}`;
+            
+            const key = `${x},${y}`;
+            const info = document.getElementById('pixel-info');
+            const colorInfo = document.getElementById('pixel-color');
+            
+            if (pixels[key] && x >= 0 && x < CANVAS_WIDTH && y >= 0 && y < CANVAS_HEIGHT) {
+                info.style.display = 'block';
+                colorInfo.textContent = pixels[key];
+                colorInfo.style.color = pixels[key];
+            } else {
+                info.style.display = 'none';
+            }
+        }
+        
+        function centerCanvas() {
+            const container = document.getElementById('canvas-container');
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            const scaledW = canvas.width * scale;
+            const scaledH = canvas.height * scale;
+            
+            offsetX = Math.max(0, Math.min(containerWidth - scaledW, (containerWidth - scaledW) / 2));
+            offsetY = Math.max(0, Math.min(containerHeight - scaledH, (containerHeight - scaledH) / 2));
+            
+            render();
+        }
+        
+        function updateOnlineCount() {
+            const count = Math.floor(Math.random() * 50) + 5;
+            document.getElementById('online').textContent = count;
+        }
+        
+        function updatePixelCount() {
+            document.getElementById('pixel-count').textContent = Object.keys(pixels).length;
+        }
+        
+        window.onload = init;
+        
+        window.addEventListener('resize', centerCanvas);
+    </script>
+</body>
+</html>
